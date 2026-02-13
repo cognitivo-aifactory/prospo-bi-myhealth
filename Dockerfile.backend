@@ -1,0 +1,27 @@
+# Backend Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy server file
+COPY server.js ./
+
+# Add health check endpoint
+RUN echo 'const express = require("express"); const app = express(); app.get("/health", (req, res) => res.status(200).json({status: "ok"})); module.exports = app;' > health.js
+
+# Expose port
+EXPOSE 3001
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+USER nodejs
+
+# Start the server
+CMD ["node", "server.js"]
