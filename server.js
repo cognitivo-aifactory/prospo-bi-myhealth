@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -9,7 +10,7 @@ const PORT = 3001;
 // Enable CORS for React app
 app.use(cors());
 app.use(express.json());
-
+app.use(express.static(path.join(__dirname, 'dist')));
 // Databricks configuration - use REACT_APP_ prefix for backend compatibility
 const DATABRICKS_HOST = process.env.VITE_DATABRICKS_HOST || process.env.REACT_APP_DATABRICKS_HOST;
 const DATABRICKS_TOKEN = process.env.VITE_DATABRICKS_TOKEN || process.env.REACT_APP_DATABRICKS_TOKEN;
@@ -72,6 +73,10 @@ app.get('/api/genie/conversations/:conversationId/messages/:messageId', async (r
       error: error.response?.data || { message: 'Failed to get message' }
     });
   }
+});
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Health check endpoint
