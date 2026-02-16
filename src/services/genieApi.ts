@@ -35,9 +35,13 @@ class GenieApiService {
   /**
    * Send a message to Genie and get a response
    * @param request - The message request
+   * @param onStatusUpdate - Optional callback for status updates during polling
    * @returns Promise with Genie's response
    */
-  async sendMessage(request: GenieRequest): Promise<GenieResponse> {
+  async sendMessage(
+    request: GenieRequest,
+    onStatusUpdate?: (status: string) => void
+  ): Promise<GenieResponse> {
     try {
       let conversationId: string;
       let messageId: string;
@@ -68,7 +72,7 @@ class GenieApiService {
       }
 
       // Poll for the message completion
-      const messageDetails = await this.pollForCompletion(conversationId, messageId);
+      const messageDetails = await this.pollForCompletion(conversationId, messageId, onStatusUpdate);
 
       // Extract response content and suggested questions
       const responseData = this.extractResponseContent(messageDetails);
@@ -108,6 +112,7 @@ class GenieApiService {
   private async pollForCompletion(
     conversationId: string,
     messageId: string,
+    onStatusUpdate?: (status: string) => void,
     maxAttempts: number = 300 // 10 minutes with 2 second intervals
   ): Promise<any> {
     let attempts = 0;
@@ -119,6 +124,11 @@ class GenieApiService {
       );
 
       const status = response.data.status;
+
+      // Notify status update
+      if (onStatusUpdate) {
+        onStatusUpdate(status);
+      }
 
       if (status === 'COMPLETED') {
         return response.data;

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router';
 import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle } from 'lucide-react';
 import { genieApi } from '../services/genieApi';
 import { ChatMessage } from '../types/chat.types';
+import { ThinkingAnimation } from './ThinkingAnimation';
 
 const SAMPLE_QUESTIONS = [
   { icon: TrendingUp, text: 'What is our appointment attendance rate this quarter?' },
@@ -241,26 +242,12 @@ export function GenieAI() {
         ))}
 
         {isLoading && (
-          <div className="flex gap-3 justify-start">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-[#FF7A00] to-[#fe4110] flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
-            </div>
-            <div
-              className={`rounded-lg p-4 ${
-                theme === 'dark'
-                  ? 'bg-[#111A2E] border border-[#24324A]'
-                  : 'bg-white border border-gray-200'
-              }`}
-            >
-              <div className="flex gap-1">
-                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-[#7F90AA]' : 'bg-gray-400'}`} style={{ animationDelay: '0ms' }}></div>
-                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-[#7F90AA]' : 'bg-gray-400'}`} style={{ animationDelay: '150ms' }}></div>
-                <div className={`w-2 h-2 rounded-full animate-bounce ${theme === 'dark' ? 'bg-[#7F90AA]' : 'bg-gray-400'}`} style={{ animationDelay: '300ms' }}></div>
-              </div>
-              <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-400'}`}>
-                Genie is thinking...
-              </p>
-            </div>
+          <div className={`px-4 py-2 rounded-lg ${
+            theme === 'dark' 
+              ? 'bg-[#111A2E]/50 border border-[#24324A]' 
+              : 'bg-gray-50 border border-gray-200'
+          }`}>
+            <ThinkingAnimation theme={theme} />
           </div>
         )}
 

@@ -35,6 +35,16 @@ export interface GenieResponse {
   };
 }
 
+export type MessageStatus = 
+  | 'SUBMITTED' 
+  | 'FETCHING_METADATA' 
+  | 'ASKING_AI' 
+  | 'PENDING_WAREHOUSE'
+  | 'EXECUTING_QUERY'
+  | 'COMPLETED' 
+  | 'FAILED' 
+  | 'CANCELLED';
+
 export interface GenieConfig {
   databricksHost: string;
   databricksToken: string;
