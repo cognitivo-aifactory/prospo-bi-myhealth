@@ -1,4 +1,5 @@
-# Backend Dockerfile
+# Backend-only Dockerfile (for docker-compose with separate frontend)
+# This version runs ONLY the API server without serving frontend files
 FROM node:18-alpine
 
 WORKDIR /app
@@ -12,8 +13,8 @@ RUN npm ci --only=production
 # Copy server file
 COPY server.js ./
 
-# Add health check endpoint
-RUN echo 'const express = require("express"); const app = express(); app.get("/health", (req, res) => res.status(200).json({status: "ok"})); module.exports = app;' > health.js
+# Create empty dist directory (server.js checks for it)
+RUN mkdir -p dist
 
 # Expose port
 EXPOSE 3001

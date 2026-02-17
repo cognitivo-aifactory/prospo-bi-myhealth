@@ -14,7 +14,7 @@ COPY package*.json ./
 RUN npm install --production
 
 COPY server.js ./
-# FIX: Copy from 'build' instead of 'dist'
+# Copy the built frontend (vite outputs to 'build' directory)
 COPY --from=build-stage /app/build ./dist 
 
 EXPOSE 3001

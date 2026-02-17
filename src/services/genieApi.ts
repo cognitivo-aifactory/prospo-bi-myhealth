@@ -19,8 +19,8 @@ class GenieApiService {
     };
 
     // Use proxy server to avoid CORS issues
-    // In production, replace with your actual backend URL
-    const proxyUrl = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+    // Use relative URL so it works in any environment (local, AWS, etc.)
+    const proxyUrl = import.meta.env.VITE_PROXY_URL || '';
 
     // Create axios instance with base configuration
     this.axiosInstance = axios.create({
