@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router';
-import { Building2, UserRound, BarChart3, Sparkles } from 'lucide-react';
+import { Building2, UserRound, BarChart3, Sparkles, LineChart } from 'lucide-react';
 
 interface SidebarProps {
   theme: 'light' | 'dark';
@@ -11,6 +11,7 @@ export function Sidebar({ theme }: SidebarProps) {
     { path: '/practice', label: 'Practice', icon: Building2 },
     { path: '/practitioner', label: 'Practitioner', icon: UserRound },
     { path: '/genie-ai', label: 'Genie AI', icon: Sparkles },
+    { path: '/chart-builder', label: 'Chart Builder', icon: LineChart },
   ];
 
   return (
