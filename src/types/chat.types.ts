@@ -8,6 +8,7 @@ export interface ChatMessage {
   suggestedQuestions?: string[]; // Add suggested questions to message
   dashboardActions?: DashboardAction[]; // Add dashboard navigation actions
   queryResult?: QueryResultData; // Add query result data for table rendering
+  userQuery?: string; // Store user's original query to detect intent
 }
 
 export interface QueryResultData {
@@ -15,6 +16,8 @@ export interface QueryResultData {
   rowCount: number;
   columns?: string[];
   rows?: any[][];
+  query?: string; // Store the SQL query to detect aggregations
+  suggestedVisualization?: 'table' | 'chart'; // Hint from backend about best visualization
 }
 
 export interface DashboardAction {

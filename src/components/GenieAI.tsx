@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useOutletContext } from 'react-router';
-import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle } from 'lucide-react';
+import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle, Table2, BarChart3 } from 'lucide-react';
 import { genieApi } from '../services/genieApi';
 import { ChatMessage } from '../types/chat.types';
 import { ThinkingAnimation } from './ThinkingAnimation';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const SAMPLE_QUESTIONS = [
   { icon: TrendingUp, text: 'What is our appointment attendance rate this quarter?' },
@@ -25,6 +26,7 @@ export function GenieAI() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [viewMode, setViewMode] = useState<Record<string, 'table' | 'chart'>>({}); // Track view mode per message
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -80,9 +82,18 @@ export function GenieAI() {
         timestamp: new Date(),
         suggestedQuestions: response.suggestedQuestions,
         queryResult: response.queryResult,
+        userQuery: input,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Set initial view mode based on suggestion
+      if (response.queryResult?.suggestedVisualization) {
+        setViewMode((prev) => ({
+          ...prev,
+          [response.id]: response.queryResult.suggestedVisualization,
+        }));
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'An error occurred while sending the message'
@@ -194,59 +205,169 @@ export function GenieAI() {
             >
               <p className="text-sm whitespace-pre-line">{message.content}</p>
               
-              {/* Query Result Table */}
+              {/* Query Result Visualization */}
               {message.queryResult && message.queryResult.rows && message.queryResult.rows.length > 0 && (
-                <div className="mt-4 overflow-x-auto">
-                  <div className={`rounded-lg border ${
-                    theme === 'dark' ? 'border-[#24324A]' : 'border-gray-200'
-                  }`}>
-                    <table className="w-full text-sm">
-                      <thead className={`${
-                        theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-50'
+                <div className="mt-4">
+                  {/* View Toggle */}
+                  <div className="flex items-center justify-between mb-3">
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
+                    }`}>
+                      Showing {message.queryResult.rowCount} rows
+                    </p>
+                    <div className={`flex gap-1 p-1 rounded-lg ${
+                      theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-100'
+                    }`}>
+                      <button
+                        onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'table' }))}
+                        className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
+                          (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'table'
+                            ? 'bg-[#FF7A00] text-white'
+                            : theme === 'dark'
+                            ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <Table2 className="w-3 h-3" />
+                        Table
+                      </button>
+                      <button
+                        onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'chart' }))}
+                        className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
+                          (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart'
+                            ? 'bg-[#FF7A00] text-white'
+                            : theme === 'dark'
+                            ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <BarChart3 className="w-3 h-3" />
+                        Chart
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Table View */}
+                  {(viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'table' && (
+                    <div className="overflow-x-auto">
+                      <div className={`rounded-lg border ${
+                        theme === 'dark' ? 'border-[#24324A]' : 'border-gray-200'
                       }`}>
-                        <tr>
-                          {message.queryResult.columns?.map((col, idx) => (
-                            <th
-                              key={idx}
-                              className={`px-4 py-2 text-left font-medium ${
-                                theme === 'dark' ? 'text-[#A9B6CC]' : 'text-gray-700'
-                              }`}
-                            >
-                              {col}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {message.queryResult.rows.map((row, rowIdx) => (
-                          <tr
-                            key={rowIdx}
-                            className={`border-t ${
-                              theme === 'dark' 
-                                ? 'border-[#24324A] hover:bg-[#16223A]' 
-                                : 'border-gray-200 hover:bg-gray-50'
-                            }`}
-                          >
-                            {row.map((cell, cellIdx) => (
-                              <td
-                                key={cellIdx}
-                                className={`px-4 py-2 ${
-                                  theme === 'dark' ? 'text-[#E6EDF7]' : 'text-gray-900'
+                        <table className="w-full text-sm">
+                          <thead className={`${
+                            theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-50'
+                          }`}>
+                            <tr>
+                              {message.queryResult.columns?.map((col, idx) => (
+                                <th
+                                  key={idx}
+                                  className={`px-4 py-2 text-left font-medium ${
+                                    theme === 'dark' ? 'text-[#A9B6CC]' : 'text-gray-700'
+                                  }`}
+                                >
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {message.queryResult.rows.slice(0, 20).map((row, rowIdx) => (
+                              <tr
+                                key={rowIdx}
+                                className={`border-t ${
+                                  theme === 'dark' 
+                                    ? 'border-[#24324A] hover:bg-[#16223A]' 
+                                    : 'border-gray-200 hover:bg-gray-50'
                                 }`}
                               >
-                                {cell !== null && cell !== undefined ? String(cell) : '-'}
-                              </td>
+                                {row.map((cell, cellIdx) => (
+                                  <td
+                                    key={cellIdx}
+                                    className={`px-4 py-2 ${
+                                      theme === 'dark' ? 'text-[#E6EDF7]' : 'text-gray-900'
+                                    }`}
+                                  >
+                                    {cell !== null && cell !== undefined ? String(cell) : '-'}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className={`text-xs mt-2 ${
-                    theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
-                  }`}>
-                    Showing {message.queryResult.rowCount} rows
-                  </p>
+                          </tbody>
+                        </table>
+                      </div>
+                      {message.queryResult.rowCount > 20 && (
+                        <p className={`text-xs mt-2 ${
+                          theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
+                        }`}>
+                          Showing first 20 of {message.queryResult.rowCount} rows
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Chart View */}
+                  {(viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart' && (
+                    <div className={`rounded-lg border p-4 ${
+                      theme === 'dark' ? 'border-[#24324A] bg-[#0D1525]' : 'border-gray-200 bg-gray-50'
+                    }`}>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart
+                          data={message.queryResult.rows.slice(0, 20).map((row) => {
+                            const obj: any = {};
+                            message.queryResult?.columns?.forEach((col, idx) => {
+                              obj[col] = row[idx];
+                            });
+                            return obj;
+                          })}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid 
+                            strokeDasharray="3 3" 
+                            stroke={theme === 'dark' ? '#24324A' : '#e5e7eb'} 
+                          />
+                          <XAxis 
+                            dataKey={message.queryResult.columns?.[0] || 'x'}
+                            stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'}
+                            tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 12 }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                          />
+                          <YAxis 
+                            stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'}
+                            tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 12 }}
+                          />
+                          <Tooltip 
+                            contentStyle={{
+                              backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff',
+                              border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`,
+                              borderRadius: '8px',
+                              color: theme === 'dark' ? '#E6EDF7' : '#111827'
+                            }}
+                          />
+                          <Legend 
+                            wrapperStyle={{
+                              color: theme === 'dark' ? '#A9B6CC' : '#6b7280'
+                            }}
+                          />
+                          {message.queryResult.columns?.slice(1).map((col, idx) => (
+                            <Bar 
+                              key={idx}
+                              dataKey={col} 
+                              fill={`hsl(${(idx * 60) % 360}, 70%, 50%)`}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                      {message.queryResult.rowCount > 20 && (
+                        <p className={`text-xs mt-2 text-center ${
+                          theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
+                        }`}>
+                          Showing first 20 of {message.queryResult.rowCount} rows
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               

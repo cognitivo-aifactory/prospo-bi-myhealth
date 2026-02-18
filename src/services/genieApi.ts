@@ -82,7 +82,8 @@ class GenieApiService {
       if (responseData.queryAttachment) {
         queryResult = await this.fetchQueryResult(
           conversationId,
-          responseData.queryAttachment.query.statement_id
+          responseData.queryAttachment.query.statement_id,
+          responseData.queryAttachment.query.query
         );
       }
 
@@ -209,22 +210,55 @@ class GenieApiService {
   /**
    * Fetch query result data from statement execution
    */
-  private async fetchQueryResult(conversationId: string, statementId: string): Promise<any> {
+  private async fetchQueryResult(conversationId: string, statementId: string, query: string): Promise<any> {
     try {
       const response = await this.axiosInstance.get(
         `/api/genie/conversations/${conversationId}/query-result/${statementId}`
       );
+
+      // Detect if this should be visualized as a chart
+      const suggestedVisualization = this.detectVisualization(query, response.data.row_count);
 
       return {
         statementId: statementId,
         rowCount: response.data.row_count || 0,
         columns: response.data.columns,
         rows: response.data.rows,
+        query: query,
+        suggestedVisualization: suggestedVisualization,
       };
     } catch (error) {
       console.error('Error fetching query result:', error);
       return null;
     }
+  }
+
+  /**
+   * Detect whether data should be shown as table or chart
+   */
+  private detectVisualization(query: string, rowCount: number): 'table' | 'chart' {
+    const queryLower = query.toLowerCase();
+    
+    // Strong indicators for chart visualization
+    const chartIndicators = [
+      'group by',
+      'sum(',
+      'count(',
+      'avg(',
+      'max(',
+      'min(',
+      'aggregate'
+    ];
+    
+    const hasAggregation = chartIndicators.some(indicator => queryLower.includes(indicator));
+    
+    // If aggregated data with reasonable row count (2-100 rows), suggest chart
+    if (hasAggregation && rowCount >= 2 && rowCount <= 100) {
+      return 'chart';
+    }
+    
+    // Otherwise, show as table
+    return 'table';
   }
 
   /**
