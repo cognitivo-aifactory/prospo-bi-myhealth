@@ -218,6 +218,7 @@ class GenieApiService {
 
       // Detect if this should be visualized as a chart
       const suggestedVisualization = this.detectVisualization(query, response.data.row_count);
+      const suggestedChartType = this.detectChartType(query, response.data.row_count, response.data.columns);
 
       return {
         statementId: statementId,
@@ -226,6 +227,7 @@ class GenieApiService {
         rows: response.data.rows,
         query: query,
         suggestedVisualization: suggestedVisualization,
+        suggestedChartType: suggestedChartType,
       };
     } catch (error) {
       console.error('Error fetching query result:', error);
@@ -259,6 +261,42 @@ class GenieApiService {
     
     // Otherwise, show as table
     return 'table';
+  }
+
+  /**
+   * Detect the best chart type based on query and data characteristics
+   */
+  private detectChartType(query: string, rowCount: number, columns?: string[]): 'bar' | 'line' | 'pie' | 'area' {
+    const queryLower = query.toLowerCase();
+    
+    // Pie chart: Good for showing parts of a whole (percentages, distributions)
+    // Best with 2-10 categories
+    if (rowCount >= 2 && rowCount <= 10) {
+      if (queryLower.includes('percentage') || 
+          queryLower.includes('distribution') ||
+          queryLower.includes('share') ||
+          (columns && columns.length === 2)) {
+        return 'pie';
+      }
+    }
+    
+    // Line chart: Good for time series or trends
+    if (queryLower.includes('date') || 
+        queryLower.includes('time') || 
+        queryLower.includes('month') ||
+        queryLower.includes('year') ||
+        queryLower.includes('trend')) {
+      return 'line';
+    }
+    
+    // Area chart: Good for cumulative data or volume over time
+    if ((queryLower.includes('cumulative') || queryLower.includes('total')) &&
+        (queryLower.includes('date') || queryLower.includes('time'))) {
+      return 'area';
+    }
+    
+    // Default to bar chart for comparisons
+    return 'bar';
   }
 
   /**

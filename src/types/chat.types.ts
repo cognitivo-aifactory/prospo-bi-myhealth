@@ -11,6 +11,8 @@ export interface ChatMessage {
   userQuery?: string; // Store user's original query to detect intent
 }
 
+export type ChartType = 'bar' | 'line' | 'pie' | 'area';
+
 export interface QueryResultData {
   statementId: string;
   rowCount: number;
@@ -18,6 +20,7 @@ export interface QueryResultData {
   rows?: any[][];
   query?: string; // Store the SQL query to detect aggregations
   suggestedVisualization?: 'table' | 'chart'; // Hint from backend about best visualization
+  suggestedChartType?: ChartType; // Suggested chart type based on data
 }
 
 export interface DashboardAction {

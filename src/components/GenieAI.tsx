@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useOutletContext } from 'react-router';
-import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle, Table2, BarChart3 } from 'lucide-react';
+import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle, Table2, BarChart3, LineChart, PieChart, AreaChart, ChevronDown } from 'lucide-react';
 import { genieApi } from '../services/genieApi';
-import { ChatMessage } from '../types/chat.types';
+import { ChatMessage, ChartType } from '../types/chat.types';
 import { ThinkingAnimation } from './ThinkingAnimation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, AreaChart as RechartsAreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 const SAMPLE_QUESTIONS = [
   { icon: TrendingUp, text: 'What is our appointment attendance rate this quarter?' },
@@ -27,6 +27,8 @@ export function GenieAI() {
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<Record<string, 'table' | 'chart'>>({}); // Track view mode per message
+  const [chartType, setChartType] = useState<Record<string, ChartType>>({}); // Track chart type per message
+  const [showChartMenu, setShowChartMenu] = useState<Record<string, boolean>>({}); // Track dropdown visibility
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,6 +38,15 @@ export function GenieAI() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowChartMenu({});
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // Check if API is configured
   useEffect(() => {
@@ -87,11 +98,17 @@ export function GenieAI() {
 
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Set initial view mode based on suggestion
+      // Set initial view mode and chart type based on suggestions
       if (response.queryResult?.suggestedVisualization) {
         setViewMode((prev) => ({
           ...prev,
           [response.id]: response.queryResult.suggestedVisualization,
+        }));
+      }
+      if (response.queryResult?.suggestedChartType) {
+        setChartType((prev) => ({
+          ...prev,
+          [response.id]: response.queryResult.suggestedChartType,
         }));
       }
     } catch (err) {
@@ -113,6 +130,26 @@ export function GenieAI() {
       handleSend();
     }
   };
+
+  const getChartIcon = (type: ChartType) => {
+    switch (type) {
+      case 'bar': return BarChart3;
+      case 'line': return LineChart;
+      case 'pie': return PieChart;
+      case 'area': return AreaChart;
+    }
+  };
+
+  const getChartLabel = (type: ChartType) => {
+    switch (type) {
+      case 'bar': return 'Bar Chart';
+      case 'line': return 'Line Chart';
+      case 'pie': return 'Pie Chart';
+      case 'area': return 'Area Chart';
+    }
+  };
+
+  const CHART_COLORS = ['#FF7A00', '#00C49F', '#0088FE', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658'];
 
   return (
     <div className="h-full flex flex-col p-6">
@@ -215,35 +252,97 @@ export function GenieAI() {
                     }`}>
                       Showing {message.queryResult.rowCount} rows
                     </p>
-                    <div className={`flex gap-1 p-1 rounded-lg ${
-                      theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-100'
-                    }`}>
-                      <button
-                        onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'table' }))}
-                        className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
-                          (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'table'
-                            ? 'bg-[#FF7A00] text-white'
-                            : theme === 'dark'
-                            ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <Table2 className="w-3 h-3" />
-                        Table
-                      </button>
-                      <button
-                        onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'chart' }))}
-                        className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
-                          (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart'
-                            ? 'bg-[#FF7A00] text-white'
-                            : theme === 'dark'
-                            ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                      >
-                        <BarChart3 className="w-3 h-3" />
-                        Chart
-                      </button>
+                    <div className="flex gap-2 items-center">
+                      {/* Chart Type Selector (only show when in chart view) */}
+                      {(viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart' && (
+                        <div className="relative z-50">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowChartMenu((prev) => ({ ...prev, [message.id]: !prev[message.id] }));
+                            }}
+                            className={`px-3 py-1 rounded-lg text-xs flex items-center gap-1 border ${
+                              theme === 'dark'
+                                ? 'bg-[#0D1525] border-[#24324A] text-[#A9B6CC] hover:text-[#E6EDF7]'
+                                : 'bg-white border-gray-200 text-gray-600 hover:text-gray-900'
+                            }`}
+                          >
+                            {(() => {
+                              const Icon = getChartIcon(chartType[message.id] || message.queryResult?.suggestedChartType || 'bar');
+                              return <Icon className="w-3 h-3" />;
+                            })()}
+                            {getChartLabel(chartType[message.id] || message.queryResult?.suggestedChartType || 'bar')}
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          {showChartMenu[message.id] && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`absolute right-0 mt-1 rounded-lg border shadow-xl min-w-[140px] ${
+                                theme === 'dark'
+                                  ? 'bg-[#111A2E] border-[#24324A]'
+                                  : 'bg-white border-gray-200'
+                              }`}
+                              style={{ zIndex: 9999 }}
+                            >
+                              {(['bar', 'line', 'pie', 'area'] as ChartType[]).map((type) => {
+                                const Icon = getChartIcon(type);
+                                return (
+                                  <button
+                                    key={type}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setChartType((prev) => ({ ...prev, [message.id]: type }));
+                                      setShowChartMenu((prev) => ({ ...prev, [message.id]: false }));
+                                    }}
+                                    className={`w-full px-4 py-2 text-xs flex items-center gap-2 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                                      (chartType[message.id] || message.queryResult?.suggestedChartType || 'bar') === type
+                                        ? 'text-[#FF7A00] bg-[#FF7A00] bg-opacity-10'
+                                        : theme === 'dark'
+                                        ? 'text-[#A9B6CC] hover:bg-[#16223A]'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <Icon className="w-3 h-3" />
+                                    {getChartLabel(type)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Table/Chart Toggle */}
+                      <div className={`flex gap-1 p-1 rounded-lg ${
+                        theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-100'
+                      }`}>
+                        <button
+                          onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'table' }))}
+                          className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
+                            (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'table'
+                              ? 'bg-[#FF7A00] text-white'
+                              : theme === 'dark'
+                              ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <Table2 className="w-3 h-3" />
+                          Table
+                        </button>
+                        <button
+                          onClick={() => setViewMode((prev) => ({ ...prev, [message.id]: 'chart' }))}
+                          className={`px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors ${
+                            (viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart'
+                              ? 'bg-[#FF7A00] text-white'
+                              : theme === 'dark'
+                              ? 'text-[#A9B6CC] hover:text-[#E6EDF7]'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <BarChart3 className="w-3 h-3" />
+                          Chart
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -306,68 +405,88 @@ export function GenieAI() {
                   )}
 
                   {/* Chart View */}
-                  {(viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart' && (
-                    <div className={`rounded-lg border p-4 ${
-                      theme === 'dark' ? 'border-[#24324A] bg-[#0D1525]' : 'border-gray-200 bg-gray-50'
-                    }`}>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart
-                          data={message.queryResult.rows.slice(0, 20).map((row) => {
-                            const obj: any = {};
-                            message.queryResult?.columns?.forEach((col, idx) => {
-                              obj[col] = row[idx];
-                            });
-                            return obj;
-                          })}
-                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                        >
-                          <CartesianGrid 
-                            strokeDasharray="3 3" 
-                            stroke={theme === 'dark' ? '#24324A' : '#e5e7eb'} 
-                          />
-                          <XAxis 
-                            dataKey={message.queryResult.columns?.[0] || 'x'}
-                            stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'}
-                            tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 12 }}
-                            angle={-45}
-                            textAnchor="end"
-                            height={80}
-                          />
-                          <YAxis 
-                            stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'}
-                            tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 12 }}
-                          />
-                          <Tooltip 
-                            contentStyle={{
-                              backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff',
-                              border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`,
-                              borderRadius: '8px',
-                              color: theme === 'dark' ? '#E6EDF7' : '#111827'
-                            }}
-                          />
-                          <Legend 
-                            wrapperStyle={{
-                              color: theme === 'dark' ? '#A9B6CC' : '#6b7280'
-                            }}
-                          />
-                          {message.queryResult.columns?.slice(1).map((col, idx) => (
-                            <Bar 
-                              key={idx}
-                              dataKey={col} 
-                              fill={`hsl(${(idx * 60) % 360}, 70%, 50%)`}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                      {message.queryResult.rowCount > 20 && (
-                        <p className={`text-xs mt-2 text-center ${
-                          theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
-                        }`}>
-                          Showing first 20 of {message.queryResult.rowCount} rows
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  {(viewMode[message.id] || message.queryResult?.suggestedVisualization || 'table') === 'chart' && (() => {
+                    const currentChartType = chartType[message.id] || message.queryResult?.suggestedChartType || 'bar';
+                    const chartData = message.queryResult.rows.slice(0, 20).map((row) => {
+                      const obj: any = {};
+                      message.queryResult?.columns?.forEach((col, idx) => {
+                        obj[col] = row[idx];
+                      });
+                      return obj;
+                    });
+                    const xAxisKey = message.queryResult.columns?.[0] || 'x';
+                    const yAxisKeys = message.queryResult.columns?.slice(1) || [];
+
+                    return (
+                      <div className={`rounded-lg border p-4 ${
+                        theme === 'dark' ? 'border-[#24324A] bg-[#0D1525]' : 'border-gray-200 bg-gray-50'
+                      }`}>
+                        <ResponsiveContainer width="100%" height={300}>
+                          {currentChartType === 'bar' && (
+                            <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#24324A' : '#e5e7eb'} />
+                              <XAxis 
+                                dataKey={xAxisKey}
+                                stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'}
+                                tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }}
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                              />
+                              <YAxis stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'} tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }} />
+                              <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff', border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#E6EDF7' : '#111827' }} />
+                              <Legend wrapperStyle={{ color: theme === 'dark' ? '#A9B6CC' : '#6b7280' }} />
+                              {yAxisKeys.map((key, idx) => (
+                                <Bar key={idx} dataKey={key} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                              ))}
+                            </BarChart>
+                          )}
+                          {currentChartType === 'line' && (
+                            <RechartsLineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#24324A' : '#e5e7eb'} />
+                              <XAxis dataKey={xAxisKey} stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'} tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
+                              <YAxis stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'} tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }} />
+                              <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff', border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#E6EDF7' : '#111827' }} />
+                              <Legend wrapperStyle={{ color: theme === 'dark' ? '#A9B6CC' : '#6b7280' }} />
+                              {yAxisKeys.map((key, idx) => (
+                                <Line key={idx} type="monotone" dataKey={key} stroke={CHART_COLORS[idx % CHART_COLORS.length]} strokeWidth={2} />
+                              ))}
+                            </RechartsLineChart>
+                          )}
+                          {currentChartType === 'pie' && (
+                            <RechartsPieChart>
+                              <Pie data={chartData} dataKey={yAxisKeys[0]} nameKey={xAxisKey} cx="50%" cy="50%" outerRadius={100} label>
+                                {chartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff', border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#E6EDF7' : '#111827' }} />
+                              <Legend wrapperStyle={{ color: theme === 'dark' ? '#A9B6CC' : '#6b7280' }} />
+                            </RechartsPieChart>
+                          )}
+                          {currentChartType === 'area' && (
+                            <RechartsAreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#24324A' : '#e5e7eb'} />
+                              <XAxis dataKey={xAxisKey} stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'} tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
+                              <YAxis stroke={theme === 'dark' ? '#A9B6CC' : '#6b7280'} tick={{ fill: theme === 'dark' ? '#A9B6CC' : '#6b7280', fontSize: 11 }} />
+                              <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#111A2E' : '#ffffff', border: `1px solid ${theme === 'dark' ? '#24324A' : '#e5e7eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#E6EDF7' : '#111827' }} />
+                              <Legend wrapperStyle={{ color: theme === 'dark' ? '#A9B6CC' : '#6b7280' }} />
+                              {yAxisKeys.map((key, idx) => (
+                                <Area key={idx} type="monotone" dataKey={key} stroke={CHART_COLORS[idx % CHART_COLORS.length]} fill={CHART_COLORS[idx % CHART_COLORS.length]} fillOpacity={0.6} />
+                              ))}
+                            </RechartsAreaChart>
+                          )}
+                        </ResponsiveContainer>
+                        {message.queryResult.rowCount > 20 && (
+                          <p className={`text-xs mt-2 text-center ${
+                            theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
+                          }`}>
+                            Showing first 20 of {message.queryResult.rowCount} rows
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               
