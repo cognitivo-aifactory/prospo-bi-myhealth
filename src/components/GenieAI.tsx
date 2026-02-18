@@ -79,6 +79,7 @@ export function GenieAI() {
         role: 'assistant',
         timestamp: new Date(),
         suggestedQuestions: response.suggestedQuestions,
+        queryResult: response.queryResult,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -192,6 +193,62 @@ export function GenieAI() {
               }`}
             >
               <p className="text-sm whitespace-pre-line">{message.content}</p>
+              
+              {/* Query Result Table */}
+              {message.queryResult && message.queryResult.rows && message.queryResult.rows.length > 0 && (
+                <div className="mt-4 overflow-x-auto">
+                  <div className={`rounded-lg border ${
+                    theme === 'dark' ? 'border-[#24324A]' : 'border-gray-200'
+                  }`}>
+                    <table className="w-full text-sm">
+                      <thead className={`${
+                        theme === 'dark' ? 'bg-[#0D1525]' : 'bg-gray-50'
+                      }`}>
+                        <tr>
+                          {message.queryResult.columns?.map((col, idx) => (
+                            <th
+                              key={idx}
+                              className={`px-4 py-2 text-left font-medium ${
+                                theme === 'dark' ? 'text-[#A9B6CC]' : 'text-gray-700'
+                              }`}
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {message.queryResult.rows.map((row, rowIdx) => (
+                          <tr
+                            key={rowIdx}
+                            className={`border-t ${
+                              theme === 'dark' 
+                                ? 'border-[#24324A] hover:bg-[#16223A]' 
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            {row.map((cell, cellIdx) => (
+                              <td
+                                key={cellIdx}
+                                className={`px-4 py-2 ${
+                                  theme === 'dark' ? 'text-[#E6EDF7]' : 'text-gray-900'
+                                }`}
+                              >
+                                {cell !== null && cell !== undefined ? String(cell) : '-'}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className={`text-xs mt-2 ${
+                    theme === 'dark' ? 'text-[#7F90AA]' : 'text-gray-500'
+                  }`}>
+                    Showing {message.queryResult.rowCount} rows
+                  </p>
+                </div>
+              )}
               
               {/* Suggested Questions */}
               {message.suggestedQuestions && message.suggestedQuestions.length > 0 && (

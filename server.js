@@ -75,6 +75,31 @@ app.get('/api/genie/conversations/:conversationId/messages/:messageId', async (r
   }
 });
 
+// Proxy endpoint: Get query result data
+app.get('/api/genie/conversations/:conversationId/query-result/:statementId', async (req, res) => {
+  try {
+    const { statementId } = req.params;
+    const response = await databricksApi.get(`/api/2.0/sql/statements/${statementId}`);
+    
+    const result = response.data;
+    
+    // Extract columns and rows from the result
+    const columns = result.manifest?.schema?.columns?.map(col => col.name) || [];
+    const rows = result.result?.data_array || [];
+    
+    res.json({
+      row_count: rows.length,
+      columns: columns,
+      rows: rows
+    });
+  } catch (error) {
+    console.error('Error getting query result:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || { message: 'Failed to get query result' }
+    });
+  }
+});
+
 // Chart Builder API Endpoints
 
 // Start a SQL Warehouse

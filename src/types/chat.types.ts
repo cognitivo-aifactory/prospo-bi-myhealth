@@ -7,6 +7,14 @@ export interface ChatMessage {
   timestamp: Date;
   suggestedQuestions?: string[]; // Add suggested questions to message
   dashboardActions?: DashboardAction[]; // Add dashboard navigation actions
+  queryResult?: QueryResultData; // Add query result data for table rendering
+}
+
+export interface QueryResultData {
+  statementId: string;
+  rowCount: number;
+  columns?: string[];
+  rows?: any[][];
 }
 
 export interface DashboardAction {
@@ -28,6 +36,7 @@ export interface GenieResponse {
   conversationId: string;
   suggestedQuestions?: string[]; // Add suggested questions to response
   dashboardActions?: DashboardAction[]; // Add dashboard actions to response
+  queryResult?: QueryResultData; // Add query result data
   metadata?: {
     queryExecutionTime?: number;
     dataSourcesUsed?: string[];

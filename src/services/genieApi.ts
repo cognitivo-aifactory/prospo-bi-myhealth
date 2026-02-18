@@ -77,11 +77,21 @@ class GenieApiService {
       // Extract response content and suggested questions
       const responseData = this.extractResponseContent(messageDetails);
 
+      // Extract query result if available
+      let queryResult;
+      if (responseData.queryAttachment) {
+        queryResult = await this.fetchQueryResult(
+          conversationId,
+          responseData.queryAttachment.query.statement_id
+        );
+      }
+
       return {
         id: messageId,
         content: responseData.content,
         conversationId: conversationId,
         suggestedQuestions: responseData.suggestedQuestions,
+        queryResult: queryResult,
         metadata: {
           queryExecutionTime: messageDetails.query_result?.duration_ms,
           dataSourcesUsed: messageDetails.attachments?.map((a: any) => a.query?.query),
@@ -150,9 +160,14 @@ class GenieApiService {
   /**
    * Extract readable response content from message details
    */
-  private extractResponseContent(messageDetails: any): { content: string; suggestedQuestions?: string[] } {
+  private extractResponseContent(messageDetails: any): { 
+    content: string; 
+    suggestedQuestions?: string[];
+    queryAttachment?: any;
+  } {
     let content = '';
     let suggestedQuestions: string[] | undefined;
+    let queryAttachment: any;
 
     // Try to get text response from attachments
     if (messageDetails.attachments && messageDetails.attachments.length > 0) {
@@ -174,12 +189,12 @@ class GenieApiService {
         suggestedQuestions = suggestedAttachment.suggested_questions.questions;
       }
 
+      // Extract query attachment for table data
+      queryAttachment = messageDetails.attachments.find((a: any) => a.query);
+
       // If no text, show query info
-      if (!content) {
-        const queryAttachment = messageDetails.attachments.find((a: any) => a.query);
-        if (queryAttachment) {
-          content = `Query executed successfully. SQL: ${queryAttachment.query.query}`;
-        }
+      if (!content && queryAttachment) {
+        content = `Query executed successfully. SQL: ${queryAttachment.query.query}`;
       }
     }
 
@@ -188,7 +203,28 @@ class GenieApiService {
       content = messageDetails.content || 'Response received but no content available.';
     }
 
-    return { content, suggestedQuestions };
+    return { content, suggestedQuestions, queryAttachment };
+  }
+
+  /**
+   * Fetch query result data from statement execution
+   */
+  private async fetchQueryResult(conversationId: string, statementId: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.get(
+        `/api/genie/conversations/${conversationId}/query-result/${statementId}`
+      );
+
+      return {
+        statementId: statementId,
+        rowCount: response.data.row_count || 0,
+        columns: response.data.columns,
+        rows: response.data.rows,
+      };
+    } catch (error) {
+      console.error('Error fetching query result:', error);
+      return null;
+    }
   }
 
   /**
