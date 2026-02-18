@@ -265,37 +265,67 @@ class GenieApiService {
 
   /**
    * Detect the best chart type based on query and data characteristics
+   * Mimics Databricks Genie UI behavior
    */
   private detectChartType(query: string, rowCount: number, columns?: string[]): 'bar' | 'line' | 'pie' | 'area' {
     const queryLower = query.toLowerCase();
+    const columnCount = columns?.length || 0;
     
-    // Pie chart: Good for showing parts of a whole (percentages, distributions)
-    // Best with 2-10 categories
-    if (rowCount >= 2 && rowCount <= 10) {
+    // Pie chart: Best for categorical breakdowns with 2-12 categories and 2 columns (category + value)
+    if (columnCount === 2 && rowCount >= 2 && rowCount <= 12) {
+      // Check if it's a percentage/distribution query
       if (queryLower.includes('percentage') || 
+          queryLower.includes('percent') ||
           queryLower.includes('distribution') ||
           queryLower.includes('share') ||
-          (columns && columns.length === 2)) {
+          queryLower.includes('proportion') ||
+          queryLower.includes('breakdown')) {
+        return 'pie';
+      }
+      
+      // Check if first column looks categorical (common category column names)
+      const firstCol = columns?.[0]?.toLowerCase() || '';
+      const categoricalIndicators = ['type', 'category', 'status', 'region', 'department', 
+                                      'location', 'role', 'state', 'country', 'product'];
+      if (categoricalIndicators.some(indicator => firstCol.includes(indicator))) {
         return 'pie';
       }
     }
     
-    // Line chart: Good for time series or trends
-    if (queryLower.includes('date') || 
-        queryLower.includes('time') || 
-        queryLower.includes('month') ||
-        queryLower.includes('year') ||
-        queryLower.includes('trend')) {
-      return 'line';
+    // Line chart: Time series data (date/time columns or temporal keywords)
+    const timeIndicators = ['date', 'time', 'month', 'year', 'quarter', 'week', 'day', 
+                            'period', 'timestamp', 'created', 'updated'];
+    const hasTimeColumn = columns?.some(col => 
+      timeIndicators.some(indicator => col.toLowerCase().includes(indicator))
+    );
+    const hasTimeKeyword = timeIndicators.some(indicator => queryLower.includes(indicator));
+    
+    if (hasTimeColumn || hasTimeKeyword) {
+      // Check for trend/over time queries
+      if (queryLower.includes('trend') || 
+          queryLower.includes('over time') ||
+          queryLower.includes('by month') ||
+          queryLower.includes('by year') ||
+          queryLower.includes('by quarter') ||
+          queryLower.includes('by week') ||
+          queryLower.includes('by day')) {
+        return 'line';
+      }
     }
     
-    // Area chart: Good for cumulative data or volume over time
-    if ((queryLower.includes('cumulative') || queryLower.includes('total')) &&
-        (queryLower.includes('date') || queryLower.includes('time'))) {
+    // Area chart: Cumulative or stacked time series
+    if ((hasTimeColumn || hasTimeKeyword) && 
+        (queryLower.includes('cumulative') || 
+         queryLower.includes('running total') ||
+         queryLower.includes('accumulated'))) {
       return 'area';
     }
     
-    // Default to bar chart for comparisons
+    // Default to bar chart for:
+    // - Comparisons across categories
+    // - Aggregated data (SUM, COUNT, AVG, etc.)
+    // - Multiple metrics
+    // - Rankings (TOP, ORDER BY)
     return 'bar';
   }
 
