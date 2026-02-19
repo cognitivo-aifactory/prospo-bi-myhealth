@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useOutletContext } from 'react-router';
-import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle, Table2, BarChart3, LineChart, PieChart, AreaChart, ChevronDown } from 'lucide-react';
+import { Send, Sparkles, User, Bot, TrendingUp, DollarSign, Calendar, AlertCircle, Table2, BarChart3, LineChart, PieChart, AreaChart, ChevronDown, Square } from 'lucide-react';
 import { genieApi } from '../services/genieApi';
 import { ChatMessage, ChartType } from '../types/chat.types';
 import { ThinkingAnimation } from './ThinkingAnimation';
@@ -30,6 +30,7 @@ export function GenieAI() {
   const [chartType, setChartType] = useState<Record<string, ChartType>>({}); // Track chart type per message
   const [showChartMenu, setShowChartMenu] = useState<Record<string, boolean>>({}); // Track dropdown visibility
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -60,25 +61,30 @@ export function GenieAI() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const messageText = input;
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: messageText,
       timestamp: new Date(),
     };
 
     // Add user message to chat
     setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    setInput(''); // Clear input immediately when message is sent
     setIsLoading(true);
+    console.log('Loading started, isLoading should be true');
     setError(null);
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
 
     try {
       // Call Genie API
       const response = await genieApi.sendMessage({
-        message: input,
+        message: messageText,
         conversationId,
-      });
+      }, undefined, abortControllerRef.current.signal);
 
       // Update conversation ID if this is the first message
       if (!conversationId) {
@@ -93,7 +99,7 @@ export function GenieAI() {
         timestamp: new Date(),
         suggestedQuestions: response.suggestedQuestions,
         queryResult: response.queryResult,
-        userQuery: input,
+        userQuery: messageText,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -102,22 +108,38 @@ export function GenieAI() {
       if (response.queryResult?.suggestedVisualization) {
         setViewMode((prev) => ({
           ...prev,
-          [response.id]: response.queryResult.suggestedVisualization,
+          [response.id]: response.queryResult!.suggestedVisualization!,
         }));
       }
       if (response.queryResult?.suggestedChartType) {
         setChartType((prev) => ({
           ...prev,
-          [response.id]: response.queryResult.suggestedChartType,
+          [response.id]: response.queryResult!.suggestedChartType!,
         }));
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'An error occurred while sending the message'
-      );
+      console.log('Error or cancellation occurred:', err);
+      // Only show error if it wasn't a user cancellation
+      if (err instanceof Error && err.message !== 'Request cancelled by user') {
+        setError(
+          err instanceof Error ? err.message : 'An error occurred while sending the message'
+        );
+      }
     } finally {
+      console.log('Loading finished, isLoading should be false');
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleStop = () => {
+    console.log('Stop button clicked');
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    // Input field is already unlocked and ready for new message
   };
 
   const handleQuickQuestion = (question: string) => {
@@ -125,7 +147,7 @@ export function GenieAI() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
       e.preventDefault();
       handleSend();
     }
@@ -540,15 +562,18 @@ export function GenieAI() {
           </div>
         ))}
 
-        {isLoading && (
-          <div className={`px-4 py-2 rounded-lg ${
-            theme === 'dark' 
-              ? 'bg-[#111A2E]/50 border border-[#24324A]' 
-              : 'bg-gray-50 border border-gray-200'
-          }`}>
-            <ThinkingAnimation theme={theme} />
-          </div>
-        )}
+        {/* Loading indicator with fixed height to prevent scroll jump */}
+        <div className={`transition-all duration-200 ${isLoading ? 'min-h-[80px]' : 'min-h-0'}`}>
+          {isLoading && (
+            <div className={`px-4 py-2 rounded-lg ${
+              theme === 'dark' 
+                ? 'bg-[#111A2E]/50 border border-[#24324A]' 
+                : 'bg-gray-50 border border-gray-200'
+            }`}>
+              <ThinkingAnimation theme={theme} />
+            </div>
+          )}
+        </div>
 
         <div ref={messagesEndRef} />
       </div>
@@ -564,29 +589,46 @@ export function GenieAI() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Ask a question about your dashboard data..."
-            disabled={isLoading}
+            disabled={false}
             className={`flex-1 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#FF7A00] focus:ring-opacity-50 ${
               theme === 'dark'
                 ? 'bg-[#16223A] border-[#24324A] text-[#E6EDF7] placeholder-[#7F90AA]'
                 : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              input.trim() && !isLoading
-                ? 'bg-[#FF7A00] hover:bg-[#FF8F2B] text-white'
-                : theme === 'dark'
-                ? 'bg-[#111A2E] text-[#7F90AA] cursor-not-allowed border border-[#24324A]'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
             }`}
-          >
-            <Send className="w-4 h-4" />
-            <span>{isLoading ? 'Sending...' : 'Send'}</span>
-          </button>
+          />
+          {isLoading ? (
+            <button
+              onClick={handleStop}
+              className="px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-lg"
+              style={{ 
+                backgroundColor: '#dc2626', 
+                color: '#ffffff',
+                border: 'none'
+              }}
+              aria-label="Stop generation"
+            >
+              <Square className="w-4 h-4 fill-current" />
+              <span>Stop</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!input.trim()}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                input.trim()
+                  ? 'bg-[#FF7A00] hover:bg-[#FF8F2B] text-white'
+                  : theme === 'dark'
+                  ? 'bg-[#111A2E] text-[#7F90AA] cursor-not-allowed border border-[#24324A]'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+              aria-label="Send message"
+            >
+              <Send className="w-4 h-4" />
+              <span>Send</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

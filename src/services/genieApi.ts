@@ -36,11 +36,13 @@ class GenieApiService {
    * Send a message to Genie and get a response
    * @param request - The message request
    * @param onStatusUpdate - Optional callback for status updates during polling
+   * @param abortSignal - Optional AbortSignal to cancel the request
    * @returns Promise with Genie's response
    */
   async sendMessage(
     request: GenieRequest,
-    onStatusUpdate?: (status: string) => void
+    onStatusUpdate?: (status: string) => void,
+    abortSignal?: AbortSignal
   ): Promise<GenieResponse> {
     try {
       let conversationId: string;
@@ -53,7 +55,8 @@ class GenieApiService {
           `/api/genie/start-conversation`,
           {
             content: request.message,
-          }
+          },
+          { signal: abortSignal }
         );
 
         conversationId = startResponse.data.conversation.id;
@@ -65,14 +68,15 @@ class GenieApiService {
           `/api/genie/conversations/${conversationId}/messages`,
           {
             content: request.message,
-          }
+          },
+          { signal: abortSignal }
         );
 
         messageId = messageResponse.data.id;
       }
 
       // Poll for the message completion
-      const messageDetails = await this.pollForCompletion(conversationId, messageId, onStatusUpdate);
+      const messageDetails = await this.pollForCompletion(conversationId, messageId, onStatusUpdate, abortSignal);
 
       // Extract response content and suggested questions
       const responseData = this.extractResponseContent(messageDetails);
@@ -124,14 +128,21 @@ class GenieApiService {
     conversationId: string,
     messageId: string,
     onStatusUpdate?: (status: string) => void,
+    abortSignal?: AbortSignal,
     maxAttempts: number = 300 // 10 minutes with 2 second intervals
   ): Promise<any> {
     let attempts = 0;
     let delay = 2000; // Start with 2 seconds
 
     while (attempts < maxAttempts) {
+      // Check if aborted
+      if (abortSignal?.aborted) {
+        throw new Error('Request cancelled by user');
+      }
+
       const response = await this.axiosInstance.get(
-        `/api/genie/conversations/${conversationId}/messages/${messageId}`
+        `/api/genie/conversations/${conversationId}/messages/${messageId}`,
+        { signal: abortSignal }
       );
 
       const status = response.data.status;
@@ -150,7 +161,7 @@ class GenieApiService {
       }
 
       // Wait before next poll (exponential backoff, max 60 seconds)
-      await this.sleep(delay);
+      await this.sleep(delay, abortSignal);
       delay = Math.min(delay * 1.5, 60000);
       attempts++;
     }
@@ -342,9 +353,19 @@ class GenieApiService {
 
   /**
    * Helper method to sleep for specified milliseconds
+   * Supports abort signal to cancel sleep
    */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private sleep(ms: number, abortSignal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(resolve, ms);
+      
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', () => {
+          clearTimeout(timeout);
+          reject(new Error('Request cancelled by user'));
+        });
+      }
+    });
   }
 }
 
