@@ -11,7 +11,7 @@ export const router = createBrowserRouter([
     path: "/",
     Component: Root,
     children: [
-      { index: true, Component: ManagementDashboard },
+      { index: true, Component: GenieAI },
       { path: "practice", Component: PracticeDashboard },
       { path: "practitioner", Component: PractitionerDashboard },
       { path: "management", Component: ManagementDashboard },

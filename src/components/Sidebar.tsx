@@ -7,11 +7,11 @@ interface SidebarProps {
 
 export function Sidebar({ theme }: SidebarProps) {
   const navItems = [
+    { path: '/genie-ai', label: 'Genie AI', icon: Sparkles },
     { path: '/management', label: 'Management', icon: BarChart3 },
     { path: '/practice', label: 'Practice', icon: Building2 },
     { path: '/practitioner', label: 'Practitioner', icon: UserRound },
-    { path: '/genie-ai', label: 'Genie AI', icon: Sparkles },
-    { path: '/chart-builder', label: 'Chart Builder', icon: LineChart },
+    // { path: '/chart-builder', label: 'Chart Builder', icon: LineChart },
   ];
 
   return (
