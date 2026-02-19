@@ -296,7 +296,9 @@ export function GenieAI() {
                                     }}
                                     className={`w-full px-4 py-2 text-xs flex items-center gap-2 transition-colors first:rounded-t-lg last:rounded-b-lg ${
                                       (chartType[message.id] || message.queryResult?.suggestedChartType || 'bar') === type
-                                        ? 'text-[#FF7A00] bg-[#FF7A00] bg-opacity-10'
+                                        ? theme === 'dark'
+                                          ? 'text-[#FF7A00] bg-[#FF7A00]/10'
+                                          : 'text-[#FF7A00] bg-[#FF7A00]/10'
                                         : theme === 'dark'
                                         ? 'text-[#A9B6CC] hover:bg-[#16223A]'
                                         : 'text-gray-600 hover:bg-gray-50'
